@@ -286,6 +286,12 @@ const deleteImage = () => {
       await api(`admin/blog/post/image/${route.params.id}`, {
         method: "DELETE",
       });
+      const fileInput = document.querySelector(
+        'input[type="file"][id="image"]'
+      ) as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = "";
+      }
       state.value.image = undefined;
       newImage.value = undefined;
       oldImage.value = undefined;
