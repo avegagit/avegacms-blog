@@ -238,7 +238,9 @@ const oldImage = ref();
 
 const handleUploadImage = (images) => {
   if (images && images[0]) {
-    oldImage.value = state.value.image;
+    if (state.value.image) {
+      oldImage.value = state.value.image;
+    }
     state.value.image = images[0];
     newImage.value = URL.createObjectURL(images[0]);
   }
@@ -276,15 +278,19 @@ const deleteImage = () => {
       });
       modal.close();
     },
-    onResolve: () => {
+    onResolve: async () => {
       toast.add({
         color: "green",
         title:
           "Вы успешно удалили изображение! Не забудьте сохранить изменения.",
       });
+      await api(`admin/blog/post/image/${route.params.id}`, {
+        method: "DELETE",
+      });
       state.value.image = undefined;
       newImage.value = undefined;
       oldImage.value = undefined;
+      modal.close();
     },
   });
 };
@@ -331,18 +337,33 @@ const onSubmit = async (values: FormSubmitEvent<State>) => {
         body: formData,
       });
 
-      const imageData = new FormData();
-      imageData.append("file", values.data.image);
-      imageData.append("_method", "PUT");
+      if (newImage.value) {
+        const imageData = new FormData();
+        imageData.append("file", values.data.image);
+        imageData.append("_method", "PUT");
 
-      await api(`admin/blog/post/upload/${route.params.id}`, {
-        method: "POST",
-        body: imageData,
-      });
+        await api(`admin/blog/post/upload/${route.params.id}`, {
+          method: "POST",
+          body: imageData,
+        });
+      }
+
+      if (!newImage.value && !values.data.image) {
+        await api(`admin/blog/post/image/${route.params.id}`, {
+          method: "DELETE",
+        });
+        state.value.image = undefined;
+        newImage.value = undefined;
+        oldImage.value = undefined;
+      }
 
       if (state.value.title !== data.value?.title) {
         data.value!.title = state.value.title!;
       }
+
+      const r = await api(`admin/blog/post/${route.params.id}`);
+
+      state.value.image = r.data.preview_id.data;
 
       toast.add({
         title: "Запись успешно сохранена.",
