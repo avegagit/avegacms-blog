@@ -78,6 +78,38 @@
                   <CmsFormGroup name="slug" label="Slug" required>
                     <CmsInput v-model="state.slug" :disabled="loading" />
                   </CmsFormGroup>
+                  <CmsFormGroup name="image" label="Изображение" required>
+                    <div class="flex flex-row gap-[10px] items-center">
+                      <CmsInput
+                        id="image"
+                        @change="handleUploadImage"
+                        type="file"
+                        :disabled="loading"
+                        accept="image/png, image/jpeg, image/webp"
+                        class="w-full"
+                      />
+                      <div class="flex flex-row gap-[5px] items-center">
+                        <CmsButton
+                          v-if="newImage"
+                          icon="bi:arrow-counterclockwise"
+                          variant="outline"
+                          color="yellow"
+                          @click="clearImage"
+                        />
+                        <CmsButton
+                          v-if="newImage || state.image"
+                          icon="bi:trash"
+                          color="red"
+                          @click="deleteImage"
+                        />
+                      </div>
+                    </div>
+                    <img
+                      v-if="state.image || newImage"
+                      :src="newImage ? newImage : state.image.path.original"
+                      class="rounded-lg mt-3"
+                    />
+                  </CmsFormGroup>
                 </div>
               </template>
 
@@ -173,6 +205,7 @@ import { object, string } from "yup";
 import type { Form, FormSubmitEvent, AccordionItem } from "#ui/types";
 import type { CmsPage } from "avegacms/src/types/page";
 import type { CmsOption } from "avegacms/src/types/core";
+import CmsConfirmModal from "avegacms/src/components/ui/CmsConfirmModal.vue";
 
 type Post = Pick<
   CmsPage,
@@ -190,11 +223,68 @@ const api = useApi();
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
+const modal = useModal();
 
 const initialized = shallowRef(false);
 const data = ref<Post>();
 
 const title = computed(() => data.value?.title ?? "");
+
+const newImage = ref();
+const oldImage = ref();
+
+const handleUploadImage = (images) => {
+  if (images && images[0]) {
+    oldImage.value = state.value.image;
+    state.value.image = images[0];
+    newImage.value = URL.createObjectURL(images[0]);
+  }
+};
+
+const clearImage = () => {
+  if (newImage.value) {
+    const fileInput = document.querySelector(
+      'input[type="file"][id="image"]'
+    ) as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = "";
+    }
+    state.value.image = oldImage.value;
+    newImage.value = undefined;
+  }
+};
+
+const deleteImage = () => {
+  modal.open(CmsConfirmModal, {
+    title: "Удалить изображение?",
+    message:
+      "Вы уверены что хотите удалить изображение? После выполнения этого действия и сохранения изменений, для восстановления изображения, потребуется загрузить его вновь!",
+    onClose: () => {
+      toast.add({
+        color: "red",
+        title: "Удаление изображения отменено",
+      });
+      modal.close();
+    },
+    onReject: () => {
+      toast.add({
+        color: "red",
+        title: "Удаление изображения отменено",
+      });
+      modal.close();
+    },
+    onResolve: () => {
+      toast.add({
+        color: "green",
+        title:
+          "Вы успешно удалили изображение! Не забудьте сохранить изменения.",
+      });
+      state.value.image = undefined;
+      newImage.value = undefined;
+      oldImage.value = undefined;
+    },
+  });
+};
 
 const accordions: AccordionItem[] = [
   {
@@ -230,10 +320,20 @@ const onSubmit = async (values: FormSubmitEvent<State>) => {
   if (!loading.value) {
     loading.value = true;
 
+    const { image, ...formData } = values.data;
+
     try {
       await api(`admin/blog/post/${route.params.id}`, {
         method: "PUT",
-        body: values.data,
+        body: formData,
+      });
+
+      const imageData = new FormData();
+      imageData.append("file", values.data.image);
+
+      await api(`admin/blog/post/upload/${route.params.id}`, {
+        method: "PUT",
+        body: imageData,
       });
 
       if (state.value.title !== data.value?.title) {
@@ -290,6 +390,7 @@ onMounted(async () => {
     state.value = {
       title: r.data.title,
       content: r.data.content,
+      image: r.data.preview_id.data,
       parent: r.data.parent,
       status: r.data.status,
       slug: r.data.slug,
@@ -309,4 +410,4 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped></style>
+<style></style>
