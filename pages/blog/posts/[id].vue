@@ -88,7 +88,10 @@
                         accept="image/png, image/jpeg, image/webp"
                         class="w-full"
                       />
-                      <div class="flex flex-row gap-[5px] items-center">
+                      <div
+                        v-if="newImage || state.image"
+                        class="flex flex-row gap-[5px] items-center"
+                      >
                         <CmsButton
                           v-if="newImage"
                           icon="bi:arrow-counterclockwise"
@@ -107,7 +110,7 @@
                     <img
                       v-if="state.image || newImage"
                       :src="newImage ? newImage : state.image.path.original"
-                      class="rounded-lg mt-3"
+                      class="rounded-lg mt-3 border border-gray"
                     />
                   </CmsFormGroup>
                 </div>
@@ -330,9 +333,10 @@ const onSubmit = async (values: FormSubmitEvent<State>) => {
 
       const imageData = new FormData();
       imageData.append("file", values.data.image);
+      imageData.append("_method", "PUT");
 
       await api(`admin/blog/post/upload/${route.params.id}`, {
-        method: "PUT",
+        method: "POST",
         body: imageData,
       });
 
@@ -387,10 +391,16 @@ onMounted(async () => {
     tags.value = r.meta.tags;
     categories.value = r.meta.categories;
 
+    const getImage = () => {
+      if (r.data.preview_id && r.data.preview_id.data) {
+        return r.data.preview_id.data;
+      } else return undefined;
+    };
+
     state.value = {
       title: r.data.title,
       content: r.data.content,
-      image: r.data.preview_id.data,
+      image: getImage(),
       parent: r.data.parent,
       status: r.data.status,
       slug: r.data.slug,
